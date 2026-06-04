@@ -1,5 +1,5 @@
 import os
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, Column, Integer, String
 from sqlalchemy.orm import sessionmaker, declarative_base
@@ -15,6 +15,12 @@ Base = declarative_base()
 
 #Start fastapi app
 app = FastAPI()
+
+# Home
+@app.get("/")
+def home():
+	return {"message": "FastAPI is running"}
+
 
 #The database blueprint model
 class UserTable(Base):
