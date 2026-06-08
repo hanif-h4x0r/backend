@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Depends, HTTPException
-from pydantic import BaseModel
 from sqlalchemy.orm import Session
+from schemas import SchemaProduct
 
 # Import connection database and table that we made in another file
 import models
@@ -11,14 +11,9 @@ app = FastAPI()
 @app.get("/")
 def home():
     return {"message": "FastAPI is running!"}
+
 # Request to SQLAlchemy to automate create table product in Neon DB
 models.Base.metadata.create_all(bind=engine)
-
-# Schema pydantic for validation
-class SchemaProduct(BaseModel):
-    name: str 
-    price: int
-    is_ready: bool = True
 
 # endpoint get to get all of product in neon databse
 @app.get("/product")
