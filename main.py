@@ -8,6 +8,9 @@ from database import engine, get_db
 
 app = FastAPI()
 
+@app.get("/")
+def home():
+    return {"message": "FastAPI is running!"}
 # Request to SQLAlchemy to automate create table product in Neon DB
 models.Base.metadata.create_all(bind=engine)
 
@@ -28,5 +31,16 @@ def get_all_product(db: Session = Depends(get_db)):
 
 @app.post("/product/add-product")
 def add_product(new_product: SchemaProduct, db: Session = Depends(get_db)):
-    # Change model from pydantic become model database SQLAlchemy
-    product_db = models.ModelProduct{}
+    # Change data from pydantic become model database SQLAlchemy
+    product_db = models.ModelProduct(
+        name=new_product.name,
+        price=new_product.price,
+        is_ready=new_product.is_ready
+    )
+
+    # Proses insert data to database Neon(INSERT INTO)
+    db.add(product_db) # Add to queue
+    db.commit() # Save or commit permanent to neon Database
+    db.refresh(product_db) # Collect the latest data from neon DB (to get ID automate)
+
+    return {"message": "Data successfuly saved in neon DB!", "data": product_db}
