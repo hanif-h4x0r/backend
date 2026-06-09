@@ -31,6 +31,12 @@ def add_product(new_product: SchemaProduct, db: Session = Depends(get_db)):
         price=new_product.price,
         is_ready=new_product.is_ready
     )
+    # Proses insert data to database Neon(INSERT INTO)
+    db.add(product_db) # Add to queue
+    db.commit() # Save or commit permanent to neon Database
+    db.refresh(product_db) # Collect the latest data from neon DB (to get ID automate)
+
+    return {"message": "Data successfuly saved in neon DB!", "data": product_db}
 
 @app.get("/product/{product_id}")
 def get_one_product(product_id: int, db: Session = Depends(get_db)):
@@ -62,10 +68,25 @@ def delete_product(product_id: int, db: Session = Depends(get_db)):
     # return success delete items
     return {"message": f"Product with this ID {product_id} Successfuly deleted"}
 
+@app.put("/update-product/{product_id}")
+def update_product(product_id: int, new_data: SchemaProduct, db: Session = Depends(get_db)):
 
-    # Proses insert data to database Neon(INSERT INTO)
-    db.add(product_db) # Add to queue
-    db.commit() # Save or commit permanent to neon Database
-    db.refresh(product_db) # Collect the latest data from neon DB (to get ID automate)
+    # search the product that you want to update
+    old_product = db.query(models.ModelProduct).filter(models.ModelProduct.id == product_id).first()
 
-    return {"message": "Data successfuly saved in neon DB!", "data": product_db}
+    #if the product not found give the polite error
+    if not old_product:
+        raise HTTPException(status_code=404, detail='Cannot update, product not fouund')
+    
+    #if product exists update 
+    old_product.name = new_data.name
+    old_product.price = new_data.price
+    old_product.is_ready = new_data.is_ready
+
+    #save change to neon  db
+    db.commit()
+    db.refresh(old_product) #get the latest product
+
+    return {"message": "Product successfuly updated", "new_data": old_product}
+
+   
