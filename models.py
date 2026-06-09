@@ -9,3 +9,4 @@ class ModelProduct(Base):
     name = Column(String, index=True)
     price = Column(Integer)
     is_ready = Column(Boolean, default=True)
+    

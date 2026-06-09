@@ -23,7 +23,6 @@ def get_all_product(db: Session = Depends(get_db)):
     return {"total_product": len(all_product), "data": all_product}
 
 # endpoint post to post new product to neon database
-
 @app.post("/product/add-product")
 def add_product(new_product: SchemaProduct, db: Session = Depends(get_db)):
     # Change data from pydantic become model database SQLAlchemy
@@ -32,6 +31,37 @@ def add_product(new_product: SchemaProduct, db: Session = Depends(get_db)):
         price=new_product.price,
         is_ready=new_product.is_ready
     )
+
+@app.get("/product/{product_id}")
+def get_one_product(product_id: int, db: Session = Depends(get_db)):
+    # search to neon db use query command orm
+    # mean: SELECT * FROM product WHERE id = product_id LIMIT 1;
+    product = db.query(models.ModelProduct).filter(models.ModelProduct.id == product_id).first()
+
+    # Conditioning if product was not found
+    if not product:
+        # We shot httpexception here
+        raise HTTPException(status_code=404, detail="Product not found")
+    
+    # if found, return data to user
+    return {"message": "Product found", "data": product}
+
+@app.delete("/product/{product_id}")
+def delete_product(product_id: int, db: Session = Depends(get_db)):
+    # Looking for items in database is it exists or not
+    product_target = db.query(models.ModelProduct).filter(models.ModelProduct.id == product_id).first()
+
+    # if item not found, give them polite error
+    if not product_target:
+        raise HTTPException(status_code=404, detail='Cannot delete, items not found')
+    
+    # if item found, lets execute delete command
+    db.delete(product_target)
+    db.commit()
+
+    # return success delete items
+    return {"message": f"Product with this ID {product_id} Successfuly deleted"}
+
 
     # Proses insert data to database Neon(INSERT INTO)
     db.add(product_db) # Add to queue
