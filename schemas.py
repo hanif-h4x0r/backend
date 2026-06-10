@@ -24,8 +24,8 @@ class SchemaProductShow(BaseModel):
     name: str
     price: int
     is_ready: bool
-    category_id = int
-    the_category = Optional[SchemaCategoryShow] = None # The great feature, so when we collect product, the category itself also show themselves
+    category_id: int
+    the_category: Optional[SchemaCategoryShow] = None # The great feature, so when we collect product, the category itself also show themselves
 
     class Config:
         from_attributes = True

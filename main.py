@@ -22,6 +22,26 @@ def add_category(new_category: SchemaCategoryFor, db: Session = Depends(get_db))
     db.refresh(category_db)
     return category_db
 
+# Get detail category
+@app.post('/category/{category_id}')
+def get_detail_category(category_id: int, db: Session = Depends(get_db)):
+    #search that category in neon db based on id that user send
+    category = db.query(models.ModelCategory).filter(models.ModelCategory.id == category_id).first()
+
+    #if category not found, give it polite error
+    if not category:
+        raise HTTPException(status_code=404, detail="Category not found")
+    
+    #if found return to the category with that id to user
+    return {
+        "id": category.id,
+        "name_category": category.name_category,
+        "list_product": category.all_products
+    }
+
+
+
+
 # Endpoint Product
 @app.post("/add-product", response_model=SchemaProductShow)
 def add_product(new_product: SchemaProductCreate, db: Session = Depends(get_db)):
@@ -45,3 +65,29 @@ def add_product(new_product: SchemaProductCreate, db: Session = Depends(get_db))
 def get_all_product(db: Session = Depends(get_db)):
     all_product = db.query(models.ModelProduct).all()
     return {"total_product": len(all_product), "data": all_product}
+
+@app.put("/change-product/{product_id}", response_model=SchemaProductShow)
+def change_product(product_id: int, new_data: SchemaProductCreate, db: Session = Depends(get_db)):
+    # look at old items in neon db
+    old_product = db.query(models.ModelProduct).filter(models.ModelProduct.id == product_id).first()
+
+    if not old_product:
+        raise HTTPException(status_code=404, detail="Product not foound, can't edit")
+    
+    #New validation: check is new id category that user send really exists in database
+    # make sure users dont move product to id category invisible that didn't exists
+    check_category = db.query(models.ModelCategory).filter(models.ModelCategory.id == new_data.category_id).first()
+    if not check_category:
+        raise HTTPException(status_code=404, detail="can't edit, id category destiny is not registered")
+    
+    # if everything was right overwrite the old data to the new data
+    old_product.name = new_data.name
+    old_product.price = new_data.price
+    old_product.is_ready = new_data.is_ready
+    old_product.category_id = new_data.category_id # Move rack category here
+
+    # Save permanent to database neon db
+    db.commit()
+    db.refresh(old_product) 
+
+    return old_product   
