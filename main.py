@@ -1,92 +1,47 @@
 from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session
-from schemas import SchemaProduct
-
-# Import connection database and table that we made in another file
+from schemas import SchemaCategoryShow, SchemaCategoryFor, SchemaProductCreate, SchemaProductShow
 import models
 from database import engine, get_db
 
 app = FastAPI()
 
-@app.get("/")
-def home():
-    return {"message": "FastAPI is running!"}
-
-# Request to SQLAlchemy to automate create table product in Neon DB
 models.Base.metadata.create_all(bind=engine)
 
-# endpoint get to get all of product in neon databse
-@app.get("/product")
-def get_all_product(db: Session = Depends(get_db)):
-    # Query sql ORM: SELECT * FROM product
-    all_product = db.query(models.ModelProduct).all()
-    return {"total_product": len(all_product), "data": all_product}
+# Endpoint Category
+@app.post("/category", response_model=SchemaCategoryShow)
+def add_category(new_category: SchemaCategoryFor, db: Session = Depends(get_db)):
+    # Check at first is the name category already exists(for not duplicate)
+    old_category = db.query(models.ModelCategory).filter(models.ModelCategory.name_category == new_category.name_category).first()
+    if old_category:
+        raise HTTPException(status_code=400, detail="This category already exists!")
+    
+    category_db = models.ModelCategory(name_category=new_category.name_category)
+    db.add(category_db)
+    db.commit()
+    db.refresh(category_db)
+    return category_db
 
-# endpoint post to post new product to neon database
-@app.post("/product/add-product")
-def add_product(new_product: SchemaProduct, db: Session = Depends(get_db)):
-    # Change data from pydantic become model database SQLAlchemy
+# Endpoint Product
+@app.post("/add-product", response_model=SchemaProductShow)
+def add_product(new_product: SchemaProductCreate, db: Session = Depends(get_db)):
+    # Validation, check is id category that user input really exists in neon db
+    check_category = db.query(models.ModelCategory).filter(models.ModelCategory.id == new_product.category_id).first()
+    if not check_category:
+        raise HTTPException(status_code=404, detail="Cannot add product, ID category didn'nt exists in neon database")
+    # Is exists save the product
     product_db = models.ModelProduct(
         name=new_product.name,
         price=new_product.price,
-        is_ready=new_product.is_ready
+        is_ready=new_product.is_ready,
+        category_id=new_product.category_id
     )
-    # Proses insert data to database Neon(INSERT INTO)
-    db.add(product_db) # Add to queue
-    db.commit() # Save or commit permanent to neon Database
-    db.refresh(product_db) # Collect the latest data from neon DB (to get ID automate)
-
-    return {"message": "Data successfuly saved in neon DB!", "data": product_db}
-
-@app.get("/product/{product_id}")
-def get_one_product(product_id: int, db: Session = Depends(get_db)):
-    # search to neon db use query command orm
-    # mean: SELECT * FROM product WHERE id = product_id LIMIT 1;
-    product = db.query(models.ModelProduct).filter(models.ModelProduct.id == product_id).first()
-
-    # Conditioning if product was not found
-    if not product:
-        # We shot httpexception here
-        raise HTTPException(status_code=404, detail="Product not found")
-    
-    # if found, return data to user
-    return {"message": "Product found", "data": product}
-
-@app.delete("/product/{product_id}")
-def delete_product(product_id: int, db: Session = Depends(get_db)):
-    # Looking for items in database is it exists or not
-    product_target = db.query(models.ModelProduct).filter(models.ModelProduct.id == product_id).first()
-
-    # if item not found, give them polite error
-    if not product_target:
-        raise HTTPException(status_code=404, detail='Cannot delete, items not found')
-    
-    # if item found, lets execute delete command
-    db.delete(product_target)
+    db.add(product_db)
     db.commit()
+    db.refresh(product_db)
+    return product_db
 
-    # return success delete items
-    return {"message": f"Product with this ID {product_id} Successfuly deleted"}
-
-@app.put("/update-product/{product_id}")
-def update_product(product_id: int, new_data: SchemaProduct, db: Session = Depends(get_db)):
-
-    # search the product that you want to update
-    old_product = db.query(models.ModelProduct).filter(models.ModelProduct.id == product_id).first()
-
-    #if the product not found give the polite error
-    if not old_product:
-        raise HTTPException(status_code=404, detail='Cannot update, product not fouund')
-    
-    #if product exists update 
-    old_product.name = new_data.name
-    old_product.price = new_data.price
-    old_product.is_ready = new_data.is_ready
-
-    #save change to neon  db
-    db.commit()
-    db.refresh(old_product) #get the latest product
-
-    return {"message": "Product successfuly updated", "new_data": old_product}
-
-   
+@app.get("/product")
+def get_all_product(db: Session = Depends(get_db)):
+    all_product = db.query(models.ModelProduct).all()
+    return {"total_product": len(all_product), "data": all_product}
