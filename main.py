@@ -3,12 +3,16 @@ from sqlalchemy.orm import Session
 from schemas import SchemaCategoryShow, SchemaCategoryFor, SchemaProductCreate, SchemaProductShow
 import models
 from database import engine, get_db
+from typing import Optional
+from sqlalchemy import or_
+
 
 app = FastAPI()
 
 models.Base.metadata.create_all(bind=engine)
 
 # Endpoint Category
+
 @app.post("/category", response_model=SchemaCategoryShow)
 def add_category(new_category: SchemaCategoryFor, db: Session = Depends(get_db)):
     # Check at first is the name category already exists(for not duplicate)
@@ -40,8 +44,6 @@ def get_detail_category(category_id: int, db: Session = Depends(get_db)):
     }
 
 
-
-
 # Endpoint Product
 @app.post("/add-product", response_model=SchemaProductShow)
 def add_product(new_product: SchemaProductCreate, db: Session = Depends(get_db)):
@@ -62,9 +64,33 @@ def add_product(new_product: SchemaProductCreate, db: Session = Depends(get_db))
     return product_db
 
 @app.get("/product")
-def get_all_product(db: Session = Depends(get_db)):
-    all_product = db.query(models.ModelProduct).all()
-    return {"total_product": len(all_product), "data": all_product}
+def get_all_product(
+    keyword: Optional[str] = None,
+    limit: int = 10,
+    skip: int = 0,
+    db: Session = Depends(get_db)
+):
+    # Start with basic query to table product
+    query = db.query(models.ModelProduct)
+
+    # Filter search: if user type something in column keyword
+    if keyword:
+        # Mean search product that the name was contain keyword
+        # .like() the func waas to make the word not sensitive big and small words
+        query = query.filter(models.ModelProduct.name.ilike(f"%{keyword}%"))
+
+        # Pagination: limit data with .limit() and .offside()
+        # .limit(10) > just collect 10 data
+        # .offside(0) > start with first data
+        total_product = query.count()
+        result_product = query.limit(limit).offset(skip).all()
+
+        return {
+            "total_find": total_product,
+            "limit": limit,
+            "skip": skip,
+            "data": result_product
+        }
 
 @app.put("/change-product/{product_id}", response_model=SchemaProductShow)
 def change_product(product_id: int, new_data: SchemaProductCreate, db: Session = Depends(get_db)):
